@@ -47,13 +47,13 @@ export default function McpTokens({
                         <p className="text-sm font-semibold">
                             Copy this token now — it won&apos;t be shown again.
                         </p>
-                        <code className="mt-2 block break-all text-xs">
+                        <code className="mt-2 block text-xs break-all">
                             {flash.mcpToken}
                         </code>
                         <p className="mt-3 text-xs text-muted-foreground">
                             Connect snippet:
                         </p>
-                        <code className="mt-1 block break-all text-xs">
+                        <code className="mt-1 block text-xs break-all">
                             {`claude mcp add --transport http laraowl ${appUrl}/mcp --header "Authorization: Bearer ${flash.mcpToken}"`}
                         </code>
                     </div>
@@ -94,7 +94,9 @@ export default function McpTokens({
                                 className="flex items-center justify-between py-2"
                             >
                                 <div>
-                                    <span className="text-sm">{token.name}</span>
+                                    <span className="text-sm">
+                                        {token.name}
+                                    </span>
                                     {token.last_used_at && (
                                         <span className="ml-2 text-xs text-muted-foreground">
                                             Last used{' '}

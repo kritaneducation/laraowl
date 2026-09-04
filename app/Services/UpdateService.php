@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Support\Release;
 use App\Support\Version;
+
+use function Illuminate\Support\defer;
+
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use function Illuminate\Support\defer;
 
 class UpdateService
 {
