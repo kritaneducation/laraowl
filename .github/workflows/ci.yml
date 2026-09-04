@@ -66,13 +66,7 @@ jobs:
       - name: Install PHP dependencies
         run: composer install --prefer-dist --no-progress --optimize-autoloader
 
-      # Reported on every run, but not a release gate, for the same reason as the
-      # npm audit in the frontend job: these are inherited advisories. Right now
-      # that is four high-severity league/commonmark issues disclosed on
-      # 2026-09-01 that upstream has not picked up yet. The weekly security
-      # workflow fails on them. Make this blocking once the tree is clean.
       - name: Audit PHP dependencies
-        continue-on-error: true
         run: composer audit --locked
 
       # -v prints the offending diff, so a failure here is actionable from the
@@ -118,13 +112,7 @@ jobs:
       - name: Install JavaScript dependencies
         run: npm ci --no-fund
 
-      # Reported on every run, but not a release gate: the tree inherits
-      # advisories from upstream that no change here can clear (shell-quote via
-      # concurrently, fast-uri via ajv/eslint - both build-time only). The weekly
-      # security workflow fails on these so they stay on someone's radar. Make
-      # this blocking once the tree is clean.
       - name: Audit JavaScript dependencies
-        continue-on-error: true
         run: npm audit --audit-level=high
 
       # Also generates resources/js/{actions,routes,wayfinder}. Those are
@@ -205,10 +193,10 @@ jobs:
           php artisan event:cache
           php artisan optimize:clear
 
-  migrations:
-    name: Migration compatibility (${{ matrix.driver }})
+  database:
+    name: Pest suite (${{ matrix.driver }})
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -222,9 +210,10 @@ jobs:
             port: '5432'
             username: laraowl
 
-    # The Pest suite itself is only green on SQLite upstream, so the cross-driver
-    # gate is the schema: every migration has to build and replay cleanly on the
-    # engines the README supports for production.
+    # The full suite runs against both engines the README supports for
+    # production, on top of a migrate/seed/replay of the schema. RollupWriter,
+    # RecordService and IssueService all branch on the driver, so SQLite alone
+    # leaves the production SQL paths unexecuted.
     env:
       DB_CONNECTION: ${{ matrix.driver }}
       DB_DATABASE: laraowl_test
@@ -278,14 +267,36 @@ jobs:
           coverage: none
           tools: composer:v2
 
-      - name: Prepare migration environment
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Prepare test environment
         run: |
           cp .env.example .env
           mkdir -p storage/framework/{cache,sessions,testing,views} storage/logs bootstrap/cache
           chmod -R u+rwX,g+rwX storage bootstrap/cache
 
-      - name: Install PHP dependencies
-        run: composer install --prefer-dist --no-progress --optimize-autoloader
+      # phpunit.xml hard-codes the SQLite driver and PHPUnit applies its <env>
+      # entries before Laravel boots, so the file itself has to be repointed.
+      - name: Point PHPUnit at ${{ matrix.driver }}
+        run: |
+          sed -i \
+            -e 's|<env name="DB_CONNECTION" value="sqlite"/>|<env name="DB_CONNECTION" value="${{ matrix.driver }}"/>|' \
+            -e 's|<env name="DB_DATABASE" value=":memory:"/>|<env name="DB_DATABASE" value="laraowl_test"/>|' \
+            phpunit.xml
+          grep -q 'value="${{ matrix.driver }}"' phpunit.xml
+          grep -q 'value="laraowl_test"' phpunit.xml
+
+      # Feature tests render the Inertia root view, so the Vite manifest has to
+      # exist before Pest runs.
+      - name: Install dependencies and assets
+        run: |
+          composer install --prefer-dist --no-progress --optimize-autoloader
+          npm ci --no-audit --no-fund
+          npm run build
 
       - name: Rebuild and seed the schema
         run: php artisan migrate:fresh --seed --force --no-interaction
@@ -293,10 +304,13 @@ jobs:
       - name: Verify migration replay is clean
         run: php artisan migrate --force --no-interaction
 
+      - name: Run Pest suites
+        run: php artisan test --compact
+
   build:
     name: Production artifact
     runs-on: ubuntu-latest
-    needs: [quality, frontend, tests, migrations]
+    needs: [quality, frontend, tests, database]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     timeout-minutes: 20
     env:

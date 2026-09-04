@@ -48,3 +48,19 @@ function something()
 {
     // ..
 }
+
+/**
+ * Whether this connection hides freshly written rows from a FULLTEXT search.
+ *
+ * InnoDB only folds new rows into a FULLTEXT index when the transaction
+ * commits, and every feature test runs inside one that is rolled back. So on
+ * MySQL and MariaDB a `MATCH ... AGAINST` in a test can never see the rows the
+ * test just inserted, however the query is written.
+ *
+ * The same search path is still asserted on the other two engines: PostgreSQL
+ * evaluates `to_tsvector` at query time, and SQLite takes the LIKE fallback.
+ */
+function fullTextIsBlindInsideTransaction(): bool
+{
+    return in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true);
+}

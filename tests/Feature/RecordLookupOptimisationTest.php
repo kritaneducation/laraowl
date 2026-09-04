@@ -97,7 +97,10 @@ test('a searched record list keeps counting for real', function () {
 
     // A search changes what is being counted, so the rollup total cannot be used.
     expect(app(RecordService::class)->getLogRecords($project, 'needle', '24h')->total())->toBe(1);
-});
+})->skip(
+    fullTextIsBlindInsideTransaction(...),
+    'InnoDB only updates FULLTEXT indexes at commit, so a transactional test cannot see its own rows.',
+);
 
 test('the paginator no longer counts raw records', function () {
     $project = Project::factory()->create();

@@ -67,8 +67,16 @@ class BackfillRollups extends Command
 
         if ($identifier) {
             return Project::query()
-                ->where('id', $identifier)
-                ->orWhere('slug', $identifier)
+                ->where(function (Builder $query) use ($identifier): void {
+                    $query->where('slug', $identifier);
+
+                    // PostgreSQL refuses to compare a non-numeric literal against
+                    // a bigint column, so only reach for the id when the
+                    // identifier could actually be one.
+                    if (ctype_digit((string) $identifier)) {
+                        $query->orWhere('id', (int) $identifier);
+                    }
+                })
                 ->get();
         }
 
