@@ -2,19 +2,19 @@ import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 
 if (typeof window !== 'undefined') {
-    const reverbAppKey = import.meta.env.VITE_REVERB_APP_KEY;
+    const pusherAppKey = import.meta.env.VITE_PUSHER_APP_KEY;
 
-    if (reverbAppKey) {
+    // Baked in at build time by the CI build job. When it is absent the
+    // dashboard still works, it simply never receives ProjectDataIngested
+    // and so never live-reloads.
+    if (pusherAppKey) {
         window.Pusher = Pusher;
 
         window.Echo = new Echo({
-            broadcaster: 'reverb',
-            key: reverbAppKey,
-            wsHost: import.meta.env.VITE_REVERB_HOST,
-            wsPort: import.meta.env.VITE_REVERB_PORT ?? 8080,
-            wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
-            forceTLS:
-                (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+            broadcaster: 'pusher',
+            key: pusherAppKey,
+            cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER ?? 'mt1',
+            forceTLS: true,
             enabledTransports: ['ws', 'wss'],
         });
     }
