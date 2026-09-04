@@ -75,8 +75,10 @@ jobs:
         continue-on-error: true
         run: composer audit --locked
 
+      # -v prints the offending diff, so a failure here is actionable from the
+      # log alone rather than just naming the file.
       - name: Check PHP formatting
-        run: vendor/bin/pint --test --parallel
+        run: vendor/bin/pint --test --parallel -v
 
   frontend:
     name: Frontend lint, types, and build
