@@ -311,7 +311,9 @@ jobs:
     name: Production artifact
     runs-on: ubuntu-latest
     needs: [quality, frontend, tests, database]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Also on workflow_dispatch, so a release can be re-cut from the UI or the
+    # CLI without pushing an empty commit.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     timeout-minutes: 20
     env:
       APP_ENV: production
